@@ -11,10 +11,14 @@ class Simulator {
   private completedJobs: Job[] = [];
   private nextJobId: number = 0;
   private serverActivity: ServerActivity[] = [];
+  private serverIdleTimes: number[] = [];
+  private serverBusyTimes: number[] = [];
 
   constructor(params: SimulationParams) {
     this.params = params;
     this.servers = new Array(params.numberOfServers).fill(null);
+    this.serverIdleTimes = new Array(params.numberOfServers).fill(0);
+    this.serverBusyTimes = new Array(params.numberOfServers).fill(0);
     
     // Initialize server activity tracking
     for (let i = 0; i < params.numberOfServers; i++) {
@@ -90,7 +94,11 @@ class Simulator {
 
   private processArrival(job: Job): void {
     // Update current time
+    const previousTime = this.currentTime;
     this.currentTime = job.arrivalTime;
+    
+    // Update server idle/busy times
+    this.updateServerTimes(previousTime);
     
     // Check if any server is available
     const availableServerIndex = this.servers.findIndex(s => s === null);
@@ -121,7 +129,14 @@ class Simulator {
 
   private processCompletion(serverIndex: number): void {
     const job = this.servers[serverIndex];
-    if (!job) return;
+    if (!job || !job.startTime) return;
+    
+    // Update time
+    const previousTime = this.currentTime;
+    this.currentTime = job.startTime + job.serviceTime;
+    
+    // Update server idle/busy times
+    this.updateServerTimes(previousTime);
     
     // Update job completion details
     job.endTime = this.currentTime;
@@ -151,6 +166,21 @@ class Simulator {
         });
       }
     }
+  }
+  
+  private updateServerTimes(previousTime: number): void {
+    const timeDiff = this.currentTime - previousTime;
+    if (timeDiff <= 0) return;
+    
+    this.servers.forEach((job, serverIndex) => {
+      if (job === null) {
+        // Server is idle
+        this.serverIdleTimes[serverIndex] += timeDiff;
+      } else {
+        // Server is busy
+        this.serverBusyTimes[serverIndex] += timeDiff;
+      }
+    });
   }
 
   private calculateQueueMetrics(): QueueMetrics {
@@ -189,16 +219,13 @@ class Simulator {
     const lq = arrivalRate * wq;
     const ls = arrivalRate * ws;
     
-    // Calculate server utilization
-    let totalServiceTime = 0;
-    for (const job of this.completedJobs) {
-      if (job.startTime !== null && job.endTime !== null) {
-        totalServiceTime += job.serviceTime;
-      }
-    }
+    // Calculate server utilization based on tracked times
+    const totalIdleTime = this.serverIdleTimes.reduce((sum, time) => sum + time, 0);
+    const totalBusyTime = this.serverBusyTimes.reduce((sum, time) => sum + time, 0);
+    const totalServerTime = totalIdleTime + totalBusyTime;
     
-    const utilizationTime = totalServiceTime / (simulationDuration * this.params.numberOfServers);
-    const idleTime = 1 - utilizationTime;
+    const idleTime = totalIdleTime / (this.params.numberOfServers * simulationDuration);
+    const utilizationTime = 1 - idleTime;
     
     return {
       lq,
@@ -250,8 +277,6 @@ class Simulator {
       if (nextEvent.time === Infinity) {
         break;
       }
-      
-      this.currentTime = nextEvent.time;
       
       if (nextEvent.type === 'arrival' && nextEvent.job) {
         this.processArrival(nextEvent.job);
