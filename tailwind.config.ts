@@ -63,13 +63,15 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Custom colors for our queuing simulator
+				// Updated queue colors with a more modern palette
 				queue: {
 					primary: '#4361ee',
 					secondary: '#3f37c9',
 					accent: '#4cc9f0',
 					background: '#f8f9fa',
 					text: '#212529',
+					light: '#e9ecef',
+					dark: '#0b132b'
 				}
 			},
 			borderRadius: {
@@ -93,11 +95,20 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					from: {
+						opacity: '0'
+					},
+					to: {
+						opacity: '1'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.5s ease-out'
 			}
 		}
 	},
