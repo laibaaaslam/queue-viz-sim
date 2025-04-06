@@ -13,6 +13,7 @@ class Simulator {
   private serverActivity: ServerActivity[] = [];
   private serverIdleTimes: number[] = [];
   private serverBusyTimes: number[] = [];
+  private lastEventTime: number = 0;
 
   constructor(params: SimulationParams) {
     this.params = params;
@@ -65,6 +66,7 @@ class Simulator {
     // Find next job completion
     let earliestCompletion = Infinity;
     let completingServerIndex = -1;
+    let completingJob: Job | null = null;
     
     this.servers.forEach((job, index) => {
       if (job !== null && job.startTime !== null) {
@@ -72,6 +74,7 @@ class Simulator {
         if (completionTime < earliestCompletion) {
           earliestCompletion = completionTime;
           completingServerIndex = index;
+          completingJob = job;
         }
       }
     });
@@ -79,11 +82,11 @@ class Simulator {
     // Return the earliest event
     if (arrivalTime < earliestCompletion) {
       return { type: 'arrival', time: arrivalTime, job: nextArrival };
-    } else if (completingServerIndex !== -1) {
+    } else if (completingServerIndex !== -1 && completingJob) {
       return { 
         type: 'completion', 
         time: earliestCompletion, 
-        job: this.servers[completingServerIndex],
+        job: completingJob,
         serverIndex: completingServerIndex
       };
     }
@@ -129,7 +132,7 @@ class Simulator {
 
   private processCompletion(serverIndex: number): void {
     const job = this.servers[serverIndex];
-    if (!job || !job.startTime) return;
+    if (!job || job.startTime === null) return;
     
     // Update time
     const previousTime = this.currentTime;
@@ -210,22 +213,25 @@ class Simulator {
       }
     }
     
+    // Calculate average wait and system times
+    const wq = totalJobs > 0 ? totalWaitTime / totalJobs : 0;
+    const ws = totalJobs > 0 ? totalSystemTime / totalJobs : 0;
+    
+    // Calculate Little's Law metrics more accurately
     const simulationDuration = this.currentTime;
-    const wq = totalWaitTime / totalJobs;
-    const ws = totalSystemTime / totalJobs;
+    const effectiveArrivalRate = totalJobs / simulationDuration;
     
     // Little's Law: L = λW
-    const arrivalRate = totalJobs / simulationDuration;
-    const lq = arrivalRate * wq;
-    const ls = arrivalRate * ws;
+    const lq = effectiveArrivalRate * wq;
+    const ls = effectiveArrivalRate * ws;
     
     // Calculate server utilization based on tracked times
     const totalIdleTime = this.serverIdleTimes.reduce((sum, time) => sum + time, 0);
     const totalBusyTime = this.serverBusyTimes.reduce((sum, time) => sum + time, 0);
-    const totalServerTime = totalIdleTime + totalBusyTime;
     
-    const idleTime = totalIdleTime / (this.params.numberOfServers * simulationDuration);
-    const utilizationTime = 1 - idleTime;
+    const totalServerTime = this.params.numberOfServers * simulationDuration;
+    const idleTime = totalIdleTime / totalServerTime;
+    const utilizationTime = totalBusyTime / totalServerTime;
     
     return {
       lq,
