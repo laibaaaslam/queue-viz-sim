@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,14 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Custom colors for our queuing simulator
+				queue: {
+					primary: '#4361ee',
+					secondary: '#3f37c9',
+					accent: '#4cc9f0',
+					background: '#f8f9fa',
+					text: '#212529',
 				}
 			},
 			borderRadius: {
